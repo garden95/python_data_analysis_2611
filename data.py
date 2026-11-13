@@ -532,7 +532,7 @@ plt.title('SBP DIST') #제목 ; 수축기 혈압(SBP) 분포
 plt.xlabel('SBP(mmHg)')
 plt.ylabel('frequency')
 plt.tight_layout()
-plt.show()
+# plt.show()
 
 plt.figure()
 plt.hist(df['DBP(이완기)'], bins=8)
@@ -540,7 +540,7 @@ plt.title('이완기 혈압(DBP)') #제목 ; 이완기 혈압(DBP) 분포
 plt.xlabel('DBP(mmHg)')
 plt.ylabel('frequency')
 plt.tight_layout()
-plt.show()
+# plt.show()
 
 # -------------------------------------
 # 5-2) 혈압분류별 평균 SBP 막대그래프
@@ -652,7 +652,7 @@ plt.tight_layout()
 - 값이 클수록 진한 색
 - 값이 작을수록 연한 색
 '''
-
+plt.close('all')
 corr_cols = ['나이', '키_cm', '몸무게_kg', 'SBP(수축기)', 'DBP(이완기)', '공복혈당', 'BMI']
 corr = df[corr_cols].corr()
 
@@ -663,4 +663,128 @@ plt.xticks(range(len(corr_cols)), corr_cols, rotation=45)
 plt.yticks(range(len(corr_cols)), corr_cols, rotation=45)
 plt.title('Corrrlation Heatmap')
 plt.tight_layout()
-plt.show()
+# plt.show()
+
+
+# =====================================
+# [6] 인사이트(자동 요약) 
+# =====================================
+
+print("=====================================")
+print('[6] 인사이트(자동 요약)')
+print('=====================================')
+
+
+# -------------------------------------
+# 6-1) 혈압분류 비율
+# -------------------------------------
+
+bp_counts = df['혈압분류'].value_counts() # 혈압분류 개수 세기
+bp_ratio = (bp_counts / len(df)) * 100 #비율 계산
+
+print('\n[혈압분류 분포(비율%)]')
+print(bp_ratio.round(1)) #소수점 한 자리까지만
+
+
+# -------------------------------------
+# 6-2) 위험 신호 : 공복혈당 평균과 126이상 비율
+# -------------------------------------
+
+mean_glu = df['공복혈당'].mean()
+high_glu_ratio = (df['공복혈당'] >= 126).mean() * 100 # True=1, False = 0
+
+print(f'\n[공복혈당 평듄 : {mean_glu: .2f} mg/dL]')
+print(f'[공복혈당 126 이상 비율 : {high_glu_ratio: .1f}%]')
+
+# -------------------------------------
+# 6-3)  운동 빈도와 주요 지표 관계
+# -------------------------------------
+
+corr_exercise_sbp = df['운동빈도(주)'].corr(df['SBP(수축기)'])
+corr_exercise_bmi = df['운동빈도(주)'].corr(df['BMI'])
+
+print(f'\n[운동빈도 vs SBP 상관계수] : {corr_exercise_sbp: .2f}')
+print(f'[운동빈도 vs BMI 상관계수] : {corr_exercise_bmi: .2f}')
+
+
+# -------------------------------------
+# 6-4)  전략 / 제안 3줄
+# -------------------------------------
+
+stratege = []
+
+# 혈압2기 비율 기반 코멘트
+ht2_ratio = (df['혈압분류'] == '고혈압2기').mean() * 100
+
+if ht2_ratio >= 30:
+    stratege.append('고혈압2기 비율이 높은 편이라''생활습관(운동/체중/염분)관련 교육 및 추적 관리가 필요합니다.')
+else:
+    stratege.append('고혈압2기 비율이 과도하게 높진 않지만,' '고혈압1기 이상에 대한 예방 안내가 유효합니다.')
+
+
+#BMI 비만 비율 코멘트
+obesity_ratio = (df['BMI분류'] == '비만').mean() * 100
+stratege.append(f'BMI 기준 비만 비율이 {obesity_ratio: .1f}% 확인, 체중관리(식습관 + 운동) 프로그램을 고려할 수 있습니다.')
+
+#혈당 고위험 비율 코멘트
+if high_glu_ratio > 20:
+    stratege.append('공복혈당 126이상 비율이 꽤 있어, 혈당 관련 추가 검사/상담 연계를 고려할 수 있습니다.')
+else:
+    stratege.append('공복혈당 고위험 비율이 높진 않지만, 식습관/활동량 관련 기본 가이드를 제공하면 좋습니다.')
+
+print('\n[제안 3줄]')
+for s in stratege:
+    print(f'- {s}')
+
+
+# -------------------------------------
+# 6-5)  위험 점수 기반 위험군 요약
+# -------------------------------------
+
+'''
+- 위험점수 2이상 -> 고위험군
+
+'''
+
+high_risk = df[df['위험점수'] >= 2]
+high_risk_ratio = (len(high_risk) / len(df)) * 100
+
+print(f'\n[고위험군 비율(위험점수 2 이상)] : {high_risk_ratio:.1f}%')
+print('[고위험군 목록]')
+print(high_risk[['환자ID', 'BMI', '공복혈당', '혈압분류', '위험점수']])
+
+
+# -------------------------------------
+# 6-6)  최상위 위험 대상 Top3
+# -------------------------------------
+
+'''
+가장 위험한 사람 추출
+    - 위험점수 기준
+    - 동일하면 BMI 높은 순
+'''
+
+top_risk = df.sort_values(['위험점수', 'BMI'], ascending=True).head(3)
+print('\n[최상위 위험 대상 Top3 ]')
+print(top_risk[['환자ID', '위험점수', 'BMI', '공복혈당', '혈압분류',]])
+
+
+# -------------------------------------
+# 6-7)  전체 건강 상태 등급 평가
+# -------------------------------------
+
+'''
+데이터 전체를 하나의 결과로 요약
+기준
+    -고위험군 비율
+    -형당 위험 비율
+'''
+
+if(high_risk_ratio >30) or (high_glu_ratio > 30):
+    health_level = '위험'
+elif(high_risk_ratio > 15) or (high_glu_ratio > 15):
+    health_level = '주의'
+else:
+    health_level = '양호'
+
+print(f'\n[전체 건강 상태 평가] => {health_level}')
